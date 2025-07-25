@@ -1,4 +1,4 @@
-import { createPublicClient, http, getContract, parseEther, createWalletClient, getAddress } from "viem";
+import { createPublicClient, http, getContract, parseEther, createWalletClient, getAddress, parseGwei } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { bsc, mainnet } from "viem/chains";
 import * as dotenv from "dotenv";
@@ -27,8 +27,18 @@ async function main() {
         throw new Error("Missing TREASURY_ADDRESS environment variable");
     }
 
+    // Get gas settings from environment variables with defaults
+    const bscGasPrice = process.env.BSC_GAS_PRICE ? parseGwei(process.env.BSC_GAS_PRICE) : parseGwei("0.1"); // 5 gwei default
+    const ethGasPrice = process.env.ETH_GAS_PRICE ? parseGwei(process.env.ETH_GAS_PRICE) : parseGwei("1"); // 30 gwei default
+    const bscGasLimit = process.env.BSC_GAS_LIMIT ? BigInt(process.env.BSC_GAS_LIMIT) : BigInt("8000000"); // 8M gas default
+    const ethGasLimit = process.env.ETH_GAS_LIMIT ? BigInt(process.env.ETH_GAS_LIMIT) : BigInt("8000000"); // 8M gas default
+
     console.log(`Delegate (Owner) Address: ${delegateAddress}`);
     console.log(`Treasury Address: ${treasuryAddress}`);
+    console.log(`BSC Gas Price: ${bscGasPrice} wei (${Number(bscGasPrice) / 1e9} gwei)`);
+    console.log(`ETH Gas Price: ${ethGasPrice} wei (${Number(ethGasPrice) / 1e9} gwei)`);
+    console.log(`BSC Gas Limit: ${bscGasLimit}`);
+    console.log(`ETH Gas Limit: ${ethGasLimit}`);
 
     // Create an account from the private key
     const account = privateKeyToAccount(privateKey);
@@ -89,8 +99,8 @@ async function main() {
         });
 
         // Contract ABIs and bytecode imports
-        const EPTCrossMainArtifact = require('../artifacts/contracts/EPTCross_main.sol/EPTCrossMain.json');
-        const EPTCrossAssitArtifact = require('../artifacts/contracts/EPTCross_assit.sol/EPTCrossAssit.json');
+        const EPTCrossMainArtifact = require('../artifacts/contracts/SupMain.sol/SupMain.json');
+        const EPTCrossAssitArtifact = require('../artifacts/contracts/SupAssit.sol/SupAssit.json');
 
         // Deploy main contract on BSC
         console.log("Deploying EPTCrossMain contract to BSC...");
@@ -98,13 +108,15 @@ async function main() {
             abi: EPTCrossMainArtifact.abi,
             bytecode: EPTCrossMainArtifact.bytecode as `0x${string}`,
             args: [
-                "Balance", // _name
-                "EPT",           // _symbol
+                "Superp", // _name
+                "$SUP",           // _symbol
                 BSC_LZ_ENDPOINT,  // _lzEndpoint
                 delegateAddress,  // _delegate
                 treasuryAddress,  // _treasury
             ],
             account,
+            gasPrice: bscGasPrice,
+            gas: bscGasLimit,
         });
 
         console.log(`EPTCrossMain deployed on BSC. Transaction hash: ${deployMainTx}`);
@@ -121,13 +133,15 @@ async function main() {
             abi: EPTCrossAssitArtifact.abi,
             bytecode: EPTCrossAssitArtifact.bytecode as `0x${string}`,
             args: [
-                "Balance", // _name
-                "EPT",             // _symbol
+                "Superp", // _name
+                "$SUP",             // _symbol
                 ETH_LZ_ENDPOINT,    // _lzEndpoint
                 delegateAddress,    // _delegate
                 treasuryAddress,    // _treasury
             ],
             account,
+            gasPrice: ethGasPrice,
+            gas: ethGasLimit,
         });
 
         console.log(`EPTCrossAssit deployed on Ethereum. Transaction hash: ${deployAssitTx}`);
